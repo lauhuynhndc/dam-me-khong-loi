@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Đam Mê Không Lời</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            background-color: #e0f2f1;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .game-board {
+            position: relative;
+            width: 100%;
+            max-width: 1300px;
+            box-shadow: 0 1cqw 3cqw rgba(0,0,0,0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            background-color: #fff;
+            container-type: inline-size; 
+        }
+        
+        .game-board img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .cover {
+            position: absolute;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 2cqw; 
+            color: #555;
+            transition: all 0.3s ease;
+            border: max(1px, 0.2cqw) solid rgba(255, 255, 255, 0.8);
+            border-radius: 0.6cqw;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        
+        .cover:hover {
+            filter: brightness(0.95);
+            transform: scale(0.98);
+        }
+        
+        .cover.round-1 { background-color: #d1ecc8; }
+        .cover.round-2 { background-color: #c8e4f8; }
+        .cover.round-3 { background-color: #fce1c5; }
+
+        .cover.scored {
+            background-color: transparent !important; 
+            color: transparent !important; 
+            border: max(2px, 0.3cqw) solid #ffca28 !important; 
+            box-shadow: 0 0 1cqw rgba(255, 202, 40, 0.8) !important; 
+        }
+
+        .cover.revealed {
+            opacity: 0 !important;
+            pointer-events: none; 
+        }
+
+        .score-display {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3cqw;
+            font-weight: 900;
+            color: #d32f2f;
+            pointer-events: none;
+        }
+        
+        .score-display.clickable:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 0.8cqw;
+        }
+
+        .total-display {
+            font-size: 4cqw; 
+            color: #c0392b;
+            background-color: #ffffff;
+            border: max(2px, 0.3cqw) solid #81c784;
+            border-radius: 1cqw;
+            box-shadow: 0 0.4cqw 1cqw rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+
+        .mask-zone {
+            position: absolute;
+            top: 3%;
+            height: 14%;
+            cursor: pointer;
+            z-index: 50;
+        }
+
+        /* Đồng hồ đếm ngược được kéo lên cao nhất để không chạm dòng chữ Đội 3 */
+        #timer-display {
+            position: absolute;
+            top: 0.5%; /* Kéo lên sát viền trên cùng */
+            right: 6%; /* Căn giữa cụm chữ Học hết mình */
+            width: 9cqw; 
+            height: 9cqw;
+            background-color: rgba(255, 202, 40, 0.95);
+            border: max(2px, 0.5cqw) solid #fff;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 4cqw; 
+            font-weight: 900;
+            color: #d32f2f;
+            box-shadow: 0 0.8cqw 2.5cqw rgba(0,0,0,0.4);
+            z-index: 999;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-board" id="board">
+        <img src="Messenger_creation_DE232405-819C-4C1A-BCEB-FAEE39833B53.jpeg" alt="Background">
+        
+        <div id="yellow-mask" class="mask-zone" style="left: 4%; width: 9%;" title="Bắt đầu đếm ngược"></div>
+        <div id="blue-mask" class="mask-zone" style="left: 13%; width: 9%;" title="Tắt đếm ngược"></div>
+        
+        <div id="timer-display">30</div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function initAudio() { if(audioCtx.state === 'suspended') { audioCtx.resume(); } }
+
+        function playClickSound() {
+            initAudio();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playTickSound() {
+            initAudio();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = "square"; 
+            osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime); 
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playAlarmSound() {
+            initAudio();
+            for(let i = 0; i < 8; i++) {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = "square"; osc.frequency.value = 850; 
+                let startTime = audioCtx.currentTime + (i * 0.4);
+                let stopTime = startTime + 0.25;
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.8, startTime + 0.01); 
+                gain.gain.setValueAtTime(0.8, stopTime - 0.01);
+                gain.gain.linearRampToValueAtTime(0, stopTime);
+                osc.start(startTime); osc.stop(stopTime);
+            }
+        }
+
+        let countdownInterval;
+        let timeLeft = 30;
+        const timerDisplay = document.getElementById('timer-display');
+        const yellowMask = document.getElementById('yellow-mask');
+        const blueMask = document.getElementById('blue-mask');
+
+        yellowMask.onclick = function() {
+            initAudio();
+            clearInterval(countdownInterval);
+            timeLeft = 30;
+            timerDisplay.innerText = timeLeft;
+            timerDisplay.style.display = 'flex';
+            timerDisplay.style.backgroundColor = 'rgba(255, 202, 40, 0.95)';
+            timerDisplay.style.color = '#d32f2f';
+            
+            countdownInterval = setInterval(function() {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    timerDisplay.innerText = timeLeft;
+                    playTickSound();
+                } else if (timeLeft === 0) {
+                    timerDisplay.innerText = 0;
+                    playAlarmSound(); 
+                    timerDisplay.style.backgroundColor = 'rgba(229, 57, 53, 0.95)'; 
+                    timerDisplay.style.color = '#fff'; 
+                } else {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+        };
+
+        blueMask.onclick = function() {
+            clearInterval(countdownInterval);
+            timerDisplay.style.display = 'none';
+        };
+
+        const config = {
+            teams: [
+                { wordLeft: 19.3, wordWidth: 20.2, scoreLeft: 39.5, scoreWidth: 5.8 },
+                { wordLeft: 45.4, wordWidth: 21.0, scoreLeft: 66.4, scoreWidth: 6.2 },
+                { wordLeft: 72.7, wordWidth: 20.0, scoreLeft: 92.7, scoreWidth: 5.5 }
+            ],
+            rounds: [
+                { top: 21.0, height: 24.6, class: 'round-1' },
+                { top: 46.2, height: 24.3, class: 'round-2' },
+                { top: 71.0, height: 22.0, class: 'round-3' }
+            ],
+            totalRow: { top: 92.8, height: 6.0 } 
+        };
+
+        const board = document.getElementById('board');
+        
+        let scores = [ [0,0,0], [0,0,0], [0,0,0] ];
+        const scoreDisplays = [];
+        const totalDisplays = [];
+        
+        const teamCovers = [ [[],[],[]], [[],[],[]], [[],[],[]] ];
+
+        for (let t = 0; t < 3; t++) {
+            scoreDisplays[t] = [];
+            for (let r = 0; r < 3; r++) {
+                let sd = document.createElement('div');
+                sd.className = 'score-display clickable'; 
+                sd.style.top = config.rounds[r].top + '%';
+                sd.style.left = config.teams[t].scoreLeft + '%';
+                sd.style.width = config.teams[t].scoreWidth + '%';
+                sd.style.height = config.rounds[r].height + '%';
+                sd.style.pointerEvents = 'auto'; 
+                sd.style.cursor = 'pointer';
+                sd.title = "Click để mở các ô chưa đoán (Không tính điểm)";
+                
+                sd.onclick = function() {
+                    playClickSound();
+                    teamCovers[t][r].forEach(cover => {
+                        if (cover.dataset.state === 'hidden') {
+                            cover.className = 'cover revealed';
+                            cover.dataset.state = 'revealed';
+                        }
+                    });
+                };
+
+                board.appendChild(sd);
+                scoreDisplays[t][r] = sd;
+            }
+
+            let td = document.createElement('div');
+            td.className = 'score-display total-display';
+            td.style.top = config.totalRow.top + '%';
+            td.style.left = config.teams[t].wordLeft + '%';
+            let totalWidth = (config.teams[t].scoreLeft + config.teams[t].scoreWidth) - config.teams[t].wordLeft;
+            td.style.width = totalWidth + '%';
+            td.style.height = config.totalRow.height + '%';
+            board.appendChild(td);
+            totalDisplays[t] = td;
+        }
+
+        for (let r = 0; r < 3; r++) {
+            const round = config.rounds[r];
+            const rowHeight = round.height / 5; 
+
+            for (let t = 0; t < 3; t++) {
+                const team = config.teams[t];
+
+                for (let i = 0; i < 5; i++) {
+                    let cover = document.createElement('div');
+                    cover.className = 'cover ' + round.class;
+                    cover.style.top = (round.top + i * rowHeight) + '%';
+                    cover.style.left = team.wordLeft + '%';
+                    cover.style.width = team.wordWidth + '%';
+                    cover.style.height = rowHeight + '%';
+                    cover.innerText = '?'; 
+                    
+                    cover.dataset.state = 'hidden'; 
+                    
+                    cover.onclick = function() {
+                        if (cover.dataset.state === 'revealed') return;
+                        
+                        playClickSound();
+                        
+                        if (cover.dataset.state === 'hidden') {
+                            cover.className = 'cover scored';
+                            cover.dataset.state = 'scored';
+                            scores[t][r]++; 
+                        } else if (cover.dataset.state === 'scored') {
+                            cover.className = 'cover ' + round.class;
+                            cover.dataset.state = 'hidden';
+                            scores[t][r]--; 
+                        }
+                        
+                        scoreDisplays[t][r].innerText = scores[t][r];
+                        updateTotal(t);
+                    };
+
+                    board.appendChild(cover);
+                    teamCovers[t][r].push(cover); 
+                }
+            }
+        }
+
+        function updateTotal(teamIndex) {
+            let total = scores[teamIndex][0] + scores[teamIndex][1] + scores[teamIndex][2];
+            totalDisplays[teamIndex].innerText = total;
+        }
+    </script>
+</body>
+</html>
